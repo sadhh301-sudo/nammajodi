@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const profiles = [
@@ -182,7 +182,7 @@ type DbProfile = {
   email: string;
 };
 
-export default function ProfileDetails() {
+function ProfileDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -214,7 +214,7 @@ export default function ProfileDetails() {
           setLoading(true);
 
           const response = await fetch(
-            `http://localhost:5000/api/profiles/${id}`
+            `/api/profiles/${id}`
           );
 
           const data = await response.json();
@@ -1132,5 +1132,21 @@ export default function ProfileDetails() {
       </footer>
 
     </main>
+  );
+}
+
+export default function ProfileDetails() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+          <p className="font-medium text-gray-600">
+            Loading profile...
+          </p>
+        </div>
+      }
+    >
+      <ProfileDetailsContent />
+    </Suspense>
   );
 }

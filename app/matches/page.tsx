@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type DbProfile = {
@@ -14,7 +14,7 @@ type DbProfile = {
   email: string;
 };
 
-export default function Matches() {
+function MatchesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -40,7 +40,7 @@ export default function Matches() {
     Meera: "/Public/Meera.jpg",
     Karthik: "/Public/Karthik.jpg",
     Sahana: "/Public/Sahana.jpg",
-    Keerthika: "/Public/Keerthika.jpg",
+    Keerthika: "/Public/Keerthi.jpg",
     Rajesh: "/Public/Rajesh.jpg",
     Divya: "/Public/Divya.jpg",
     Manoj: "/Public/Manoj.jpg",
@@ -86,7 +86,7 @@ export default function Matches() {
     const fetchProfiles = async () => {
       try {
         const response = await fetch(
-          "http://localhost:5000/api/profiles"
+          "/api/profiles"
         );
 
         const data = await response.json();
@@ -121,16 +121,12 @@ export default function Matches() {
 
     if (search.trim()) {
       result = result.filter((profile) =>
-        profile.name
-          .toLowerCase()
-          .includes(search.toLowerCase())
+        profile.name.toLowerCase().includes(search.toLowerCase())
       );
     }
 
     if (ageFilter) {
-      const [minAge, maxAge] = ageFilter
-        .split("-")
-        .map(Number);
+      const [minAge, maxAge] = ageFilter.split("-").map(Number);
 
       result = result.filter(
         (profile) =>
@@ -196,7 +192,7 @@ export default function Matches() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/profiles/${id}`,
+        `/api/profiles/${id}`,
         {
           method: "DELETE",
         }
@@ -226,9 +222,7 @@ export default function Matches() {
   /* ---------------- VIEW PROFILE ---------------- */
 
   const handleViewProfile = (id: string) => {
-    router.push(
-      `/profile-details?id=${id}&mongo=true`
-    );
+    router.push(`/profile-details?id=${id}&mongo=true`);
   };
 
   /* ---------------- LOGOUT ---------------- */
@@ -262,16 +256,12 @@ export default function Matches() {
 
         <div className="mx-auto flex max-w-7xl items-center justify-between">
 
-          {/* Logo */}
-
           <button
             onClick={() => router.push("/")}
             className="text-xl font-bold text-pink-600 md:text-2xl"
           >
             💍 NammaJodi
           </button>
-
-          {/* Desktop Navigation */}
 
           <div className="hidden items-center gap-7 md:flex">
 
@@ -307,8 +297,6 @@ export default function Matches() {
             </button>
 
           </div>
-
-          {/* Right Buttons */}
 
           <div className="flex items-center gap-2">
 
@@ -359,8 +347,6 @@ export default function Matches() {
             </p>
 
           </div>
-
-          {/* Stats */}
 
           <div className="mt-8 flex flex-wrap gap-4">
 
@@ -468,21 +454,11 @@ export default function Matches() {
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
                 >
                   <option value="">All Ages</option>
-                  <option value="21-25">
-                    21 - 25
-                  </option>
-                  <option value="26-30">
-                    26 - 30
-                  </option>
-                  <option value="31-35">
-                    31 - 35
-                  </option>
-                  <option value="36-40">
-                    36 - 40
-                  </option>
-                  <option value="41-60">
-                    41 - 60
-                  </option>
+                  <option value="21-25">21 - 25</option>
+                  <option value="26-30">26 - 30</option>
+                  <option value="31-35">31 - 35</option>
+                  <option value="36-40">36 - 40</option>
+                  <option value="41-60">41 - 60</option>
                 </select>
               </div>
 
@@ -500,18 +476,10 @@ export default function Matches() {
                   }
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
                 >
-                  <option value="">
-                    All Locations
-                  </option>
-                  <option value="Chennai">
-                    Chennai
-                  </option>
-                  <option value="Coimbatore">
-                    Coimbatore
-                  </option>
-                  <option value="Bangalore">
-                    Bangalore
-                  </option>
+                  <option value="">All Locations</option>
+                  <option value="Chennai">Chennai</option>
+                  <option value="Coimbatore">Coimbatore</option>
+                  <option value="Bangalore">Bangalore</option>
                 </select>
               </div>
 
@@ -529,15 +497,9 @@ export default function Matches() {
                   }
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
                 >
-                  <option value="">
-                    Everyone
-                  </option>
-                  <option value="Bride">
-                    Bride
-                  </option>
-                  <option value="Groom">
-                    Groom
-                  </option>
+                  <option value="">Everyone</option>
+                  <option value="Bride">Bride</option>
+                  <option value="Groom">Groom</option>
                 </select>
               </div>
 
@@ -576,11 +538,13 @@ export default function Matches() {
 
           {loading && (
             <div className="rounded-3xl bg-white p-12 text-center shadow-sm">
+
               <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-pink-200 border-t-pink-600"></div>
 
               <p className="font-medium text-gray-600">
                 Loading profiles...
               </p>
+
             </div>
           )}
 
@@ -644,11 +608,7 @@ export default function Matches() {
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       />
 
-                      {/* Gradient */}
-
                       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent"></div>
-
-                      {/* Location */}
 
                       <div className="absolute bottom-4 left-4 text-white">
 
@@ -680,7 +640,7 @@ export default function Matches() {
                         </button>
                       )}
 
-                      {/* Own Profile Badge */}
+                      {/* Own Profile */}
 
                       {isOwnProfile && (
                         <span className="absolute left-4 top-4 rounded-full bg-pink-600 px-3 py-1.5 text-xs font-bold text-white">
@@ -689,7 +649,6 @@ export default function Matches() {
                       )}
 
                     </div>
-
 
                     {/* CARD CONTENT */}
 
@@ -832,6 +791,22 @@ export default function Matches() {
       </footer>
 
     </main>
+  );
+}
+
+export default function Matches() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+          <p className="font-medium text-gray-600">
+            Loading matches...
+          </p>
+        </div>
+      }
+    >
+      <MatchesContent />
+    </Suspense>
   );
 }
 
