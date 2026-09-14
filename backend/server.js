@@ -1,7 +1,11 @@
 const dns = require("dns");
+const path = require("path");
+
 dns.setServers(["8.8.8.8"]);
 
-require("dotenv").config();
+require("dotenv").config({
+  path: path.join(__dirname, ".env"),
+});
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -10,34 +14,35 @@ const nodemailer = require("nodemailer");
 
 const Profile = require("./Models/profile");
 
-const transporter = nodemailer.createTransport({
-  service:"gmail",
-  auth:{
-    user:process.env.EMAIL_USER,
-    pass:process.env.EMAIL_PASS,
-  },
-});
-
 const app = express();
 
+// ================================
+// MIDDLEWARE
+// ================================
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected successfully ✅");
-  })
-  .catch((error) => {
-    console.log("MongoDB connection failed ❌", error);
-  });
+// ================================
+// EMAIL SETUP
+// ================================
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-// Test route
+// ================================
+// TEST ROUTE
+// ================================
 app.get("/", (req, res) => {
   res.send("NammaJodi Backend is running ✅");
 });
 
+// ================================
+// CONTACT API
+// ================================
 app.post("/api/contact", async (req, res) => {
   try {
     const { name, email, message } = req.body;
@@ -70,11 +75,14 @@ ${message}
 
     res.status(500).json({
       message: "Failed to send message ❌",
+      error: error.message,
     });
   }
 });
 
+// ================================
 // CREATE PROFILE
+// ================================
 app.post("/api/profiles", async (req, res) => {
   try {
     const profile = new Profile(req.body);
@@ -86,6 +94,8 @@ app.post("/api/profiles", async (req, res) => {
       profile: savedProfile,
     });
   } catch (error) {
+    console.error("Profile creation error:", error);
+
     res.status(400).json({
       message: "Profile creation failed ❌",
       error: error.message,
@@ -93,15 +103,33 @@ app.post("/api/profiles", async (req, res) => {
   }
 });
 
-// READ ALL PROFILES
+// ================================
+// GET ALL PROFILES
+// ================================
 app.get("/api/profiles", async (req, res) => {
   try {
-    const profiles = await Profile.find();
+    console.log(
+      "Profile API called. MongoDB readyState:",
+      mongoose.connection.readyState
+    );
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "MongoDB is not connected ❌",
+        readyState: mongoose.connection.readyState,
+      });
+    }
+
+    const profiles = await Profile.find({}).lean();
+
+    console.log("Profiles found:", profiles.length);
 
     res.status(200).json({
-      profiles,
+      profiles: profiles,
     });
   } catch (error) {
+    console.error("Get profiles error:", error);
+
     res.status(500).json({
       message: "Failed to fetch profiles ❌",
       error: error.message,
@@ -109,10 +137,12 @@ app.get("/api/profiles", async (req, res) => {
   }
 });
 
-// READ ONE PROFILE
+// ================================
+// GET SINGLE PROFILE
+// ================================
 app.get("/api/profiles/:id", async (req, res) => {
   try {
-    const profile = await Profile.findById(req.params.id);
+    const profile = await Profile.findById(req.params.id).lean();
 
     if (!profile) {
       return res.status(404).json({
@@ -121,9 +151,11 @@ app.get("/api/profiles/:id", async (req, res) => {
     }
 
     res.status(200).json({
-      profile,
+      profile: profile,
     });
   } catch (error) {
+    console.error("Get single profile error:", error);
+
     res.status(400).json({
       message: "Failed to fetch profile ❌",
       error: error.message,
@@ -131,7 +163,9 @@ app.get("/api/profiles/:id", async (req, res) => {
   }
 });
 
+// ================================
 // UPDATE PROFILE
+// ================================
 app.put("/api/profiles/:id", async (req, res) => {
   try {
     const updatedProfile = await Profile.findByIdAndUpdate(
@@ -141,7 +175,7 @@ app.put("/api/profiles/:id", async (req, res) => {
         new: true,
         runValidators: true,
       }
-    );
+    ).lean();
 
     if (!updatedProfile) {
       return res.status(404).json({
@@ -154,6 +188,8 @@ app.put("/api/profiles/:id", async (req, res) => {
       profile: updatedProfile,
     });
   } catch (error) {
+    console.error("Update profile error:", error);
+
     res.status(400).json({
       message: "Profile update failed ❌",
       error: error.message,
@@ -161,12 +197,14 @@ app.put("/api/profiles/:id", async (req, res) => {
   }
 });
 
+// ================================
 // DELETE PROFILE
+// ================================
 app.delete("/api/profiles/:id", async (req, res) => {
   try {
     const deletedProfile = await Profile.findByIdAndDelete(
       req.params.id
-    );
+    ).lean();
 
     if (!deletedProfile) {
       return res.status(404).json({
@@ -178,6 +216,8 @@ app.delete("/api/profiles/:id", async (req, res) => {
       message: "Profile deleted successfully ✅",
     });
   } catch (error) {
+    console.error("Delete profile error:", error);
+
     res.status(400).json({
       message: "Profile deletion failed ❌",
       error: error.message,
@@ -185,7 +225,42 @@ app.delete("/api/profiles/:id", async (req, res) => {
   }
 });
 
-// START SERVER
-app.listen(5000, () => {
-  console.log("NammaJodi Backend running on http://localhost:5000");
+// ================================
+// MONGODB CONNECTION + SERVER
+// ================================
+mongoose.set("bufferCommands", false);
+
+mongoose.connection.on("connected", () => {
+  console.log("MongoDB connection ACTIVE ✅");
 });
+
+mongoose.connection.on("disconnected", () => {
+  console.log("MongoDB connection DISCONNECTED ❌");
+});
+
+mongoose.connection.on("error", (error) => {
+  console.log("MongoDB connection ERROR ❌");
+  console.log(error.message);
+});
+
+mongoose
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+  })
+  .then(() => {
+    console.log("MongoDB connected successfully ✅");
+    console.log(
+      "MongoDB readyState:",
+      mongoose.connection.readyState
+    );
+
+    app.listen(5000, () => {
+      console.log(
+        "NammaJodi Backend running on http://localhost:5000"
+      );
+    });
+  })
+  .catch((error) => {
+    console.error("MongoDB connection failed ❌");
+    console.error(error.message);
+  });

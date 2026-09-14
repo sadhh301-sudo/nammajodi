@@ -9,6 +9,9 @@ function ProfilePageContent() {
 
   const isEdit = searchParams.get("edit") === "true";
 
+  // BACKEND URL
+  const API_URL = "http://localhost:5000";
+
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [lookingFor, setLookingFor] = useState("");
@@ -17,7 +20,9 @@ function ProfilePageContent() {
   const [about, setAbout] = useState("");
   const [email, setEmail] = useState("");
 
+  // =========================
   // LOAD EXISTING PROFILE
+  // =========================
   useEffect(() => {
     const savedProfile = localStorage.getItem("nammajodiProfile");
     const savedEmail = localStorage.getItem("userEmail");
@@ -27,19 +32,25 @@ function ProfilePageContent() {
     }
 
     if (savedProfile) {
-      const profile = JSON.parse(savedProfile);
+      try {
+        const profile = JSON.parse(savedProfile);
 
-      setName(profile.name || "");
-      setAge(profile.age ? String(profile.age) : "");
-      setLookingFor(profile.lookingFor || "");
-      setLocation(profile.location || "");
-      setProfession(profile.profession || "");
-      setAbout(profile.about || "");
-      setEmail(profile.email || savedEmail || "");
+        setName(profile.name || "");
+        setAge(profile.age ? String(profile.age) : "");
+        setLookingFor(profile.lookingFor || "");
+        setLocation(profile.location || "");
+        setProfession(profile.profession || "");
+        setAbout(profile.about || "");
+        setEmail(profile.email || savedEmail || "");
+      } catch (error) {
+        console.error("Profile loading error:", error);
+      }
     }
   }, []);
 
+  // =========================
   // CREATE / UPDATE PROFILE
+  // =========================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -49,7 +60,9 @@ function ProfilePageContent() {
     const cleanAbout = about.trim();
     const cleanEmail = email.trim();
 
+    // =========================
     // NAME VALIDATION
+    // =========================
     const nameRegex = /^[A-Za-z ]+$/;
 
     if (!cleanName) {
@@ -62,7 +75,9 @@ function ProfilePageContent() {
       return;
     }
 
+    // =========================
     // AGE VALIDATION
+    // =========================
     const numericAge = Number(age);
 
     if (!age) {
@@ -75,19 +90,25 @@ function ProfilePageContent() {
       return;
     }
 
+    // =========================
     // LOOKING FOR VALIDATION
+    // =========================
     if (!lookingFor) {
       alert("Please select Looking For ❌");
       return;
     }
 
+    // =========================
     // LOCATION VALIDATION
+    // =========================
     if (!location) {
       alert("Please select your location ❌");
       return;
     }
 
+    // =========================
     // PROFESSION VALIDATION
+    // =========================
     if (
       cleanProfession &&
       !nameRegex.test(cleanProfession)
@@ -96,7 +117,9 @@ function ProfilePageContent() {
       return;
     }
 
+    // =========================
     // EMAIL VALIDATION
+    // =========================
     const emailRegex =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -110,6 +133,9 @@ function ProfilePageContent() {
       return;
     }
 
+    // =========================
+    // PROFILE DATA
+    // =========================
     const profileData = {
       name: cleanName,
       age: numericAge,
@@ -121,9 +147,9 @@ function ProfilePageContent() {
     };
 
     try {
-      // =========================
-      // EDIT → UPDATE PROFILE
-      // =========================
+      // ==================================================
+      // EDIT → UPDATE EXISTING PROFILE
+      // ==================================================
       if (isEdit) {
         const savedProfile =
           localStorage.getItem("nammajodiProfile");
@@ -141,7 +167,7 @@ function ProfilePageContent() {
         }
 
         const response = await fetch(
-          `/api/profiles/${oldProfile._id}`,
+          `${API_URL}/api/profiles/${oldProfile._id}`,
           {
             method: "PUT",
             headers: {
@@ -161,6 +187,7 @@ function ProfilePageContent() {
           return;
         }
 
+        // SAVE UPDATED PROFILE
         localStorage.setItem(
           "nammajodiProfile",
           JSON.stringify(data.profile)
@@ -172,11 +199,11 @@ function ProfilePageContent() {
         return;
       }
 
-      // =========================
-      // CREATE NEW PROFILE
-      // =========================
+      // ==================================================
+      // CREATE → NEW PROFILE
+      // ==================================================
       const response = await fetch(
-        "/api/profiles",
+        `${API_URL}/api/profiles`,
         {
           method: "POST",
           headers: {
@@ -196,6 +223,7 @@ function ProfilePageContent() {
         return;
       }
 
+      // SAVE NEW PROFILE
       localStorage.setItem(
         "nammajodiProfile",
         JSON.stringify(data.profile)
@@ -205,7 +233,8 @@ function ProfilePageContent() {
 
       router.push("/matches");
     } catch (error) {
-      console.error(error);
+      console.error("Backend connection error:", error);
+
       alert("Backend connection failed ❌");
     }
   };
@@ -303,19 +332,27 @@ function ProfilePageContent() {
               className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-[#8b4513]"
             >
               <option value="">Select Location</option>
-              <option value="Chennai">Chennai</option>
+
+              <option value="Chennai">
+                Chennai
+              </option>
+
               <option value="Coimbatore">
                 Coimbatore
               </option>
+
               <option value="Bangalore">
                 Bangalore
               </option>
+
               <option value="Thirupur">
                 Thirupur
               </option>
+
               <option value="Pondicherry">
                 Pondicherry
               </option>
+
               <option value="Karaikal">
                 Karaikal
               </option>

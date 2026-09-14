@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type DbProfile = {
   _id: string;
@@ -14,9 +14,10 @@ type DbProfile = {
   email: string;
 };
 
+const API_URL = "http://localhost:5000";
+
 function MatchesContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [profiles, setProfiles] = useState<DbProfile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<DbProfile[]>([]);
@@ -30,42 +31,52 @@ function MatchesContent() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  /* =========================
+     PROFILE IMAGES
+  ========================= */
+
   const imageMap: Record<string, string> = {
     Ananya: "/Public/Ananya.jpg",
-    Rahul: "/Public/Rahul.jpg",
     Priya: "/Public/Priya.jpg",
-    Vikram: "/Public/Vikram.jpg",
-    Banu: "/Public/Banu.jpg",
-    Arjun: "/Public/Arjun.jpg",
-    Meera: "/Public/Meera.jpg",
-    Karthik: "/Public/Karthik.jpg",
-    Sahana: "/Public/Sahana.jpg",
-    Keerthika: "/Public/Keerthi.jpg",
-    Rajesh: "/Public/Rajesh.jpg",
+    Rahul: "/Public/Rahul.jpg",
     Divya: "/Public/Divya.jpg",
-    Manoj: "/Public/Manoj.jpg",
-    Shalini: "/Public/Shalini.jpg",
-    Sara: "/Public/Sara.jpg",
+    Karthik: "/Public/Karthik.jpg",
+    Arun: "/Public/Arun.jpg",
+    Vikram: "/public/Vikram.jpg",
+    Banu: "/public/Banu.jpg",
+    Arjun: "/public/Arjun.jpg",
+    Meera: "/public/Meera.jpg",
+    Sahana: "/public/Sahana.jpg",
+    Keerthika: "/public/Keerthika.jpg",
+    Rajesh: "/public/Rajesh.jpg",
+    Manoj: "public/Manoj.jpg",
+    Shalini: "public/Shalini.jpg",
+    Sara: "public/Sara.jpg",
   };
 
-  /* ---------------- LOGIN CHECK ---------------- */
+  /* =========================
+     LOGIN + SAVED PROFILES
+  ========================= */
 
   useEffect(() => {
-    const loginStatus = localStorage.getItem("isLoggedIn");
+    const isLoggedIn = localStorage.getItem("isLoggedIn");
 
-    if (loginStatus !== "true") {
-      router.push("/login");
+    if (!isLoggedIn) {
+      router.push("/");
       return;
     }
 
-    const storedProfile = localStorage.getItem("nammajodiProfile");
+    const profileData = localStorage.getItem("nammajodiProfile");
 
-    if (storedProfile) {
+    if (profileData) {
       try {
-        const profile = JSON.parse(storedProfile);
-        setCurrentUserId(profile._id || null);
-      } catch {
-        setCurrentUserId(null);
+        const profile = JSON.parse(profileData);
+
+        if (profile?._id) {
+          setCurrentUserId(profile._id);
+        }
+      } catch (error) {
+        console.error("Profile data error:", error);
       }
     }
 
@@ -74,29 +85,36 @@ function MatchesContent() {
     if (saved) {
       try {
         setSavedProfiles(JSON.parse(saved));
-      } catch {
-        setSavedProfiles([]);
+      } catch (error) {
+        console.error("Saved profiles error:", error);
       }
     }
   }, [router]);
 
-  /* ---------------- GET PROFILES ---------------- */
+  /* =========================
+     FETCH PROFILES FROM MONGODB
+  ========================= */
 
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
+        setLoading(true);
+
         const response = await fetch(
-          "/api/profiles"
+          `${API_URL}/api/profiles`
         );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch profiles");
+        }
 
         const data = await response.json();
 
-        if (response.ok) {
-          setProfiles(data.profiles || []);
-          setFilteredProfiles(data.profiles || []);
-        }
+        console.log("MongoDB Profiles:", data);
+
+        setProfiles(data.profiles || []);
       } catch (error) {
-        console.error("Failed to fetch profiles:", error);
+        console.error("Fetch profiles error:", error);
       } finally {
         setLoading(false);
       }
@@ -105,49 +123,40 @@ function MatchesContent() {
     fetchProfiles();
   }, []);
 
-  /* ---------------- HOME SEARCH VALUES ---------------- */
-
-  useEffect(() => {
-    setSearch(searchParams.get("name") || "");
-    setAgeFilter(searchParams.get("age") || "");
-    setLocationFilter(searchParams.get("location") || "");
-    setLookingForFilter(searchParams.get("lookingFor") || "");
-  }, [searchParams]);
-
-  /* ---------------- FILTER ---------------- */
+  /* =========================
+     SEARCH + FILTER
+  ========================= */
 
   useEffect(() => {
     let result = [...profiles];
 
     if (search.trim()) {
       result = result.filter((profile) =>
-        profile.name.toLowerCase().includes(search.toLowerCase())
+        profile.name
+          .toLowerCase()
+          .includes(search.toLowerCase())
       );
     }
 
     if (ageFilter) {
-      const [minAge, maxAge] = ageFilter.split("-").map(Number);
-
       result = result.filter(
         (profile) =>
-          profile.age >= minAge &&
-          profile.age <= maxAge
+          profile.age === Number(ageFilter)
       );
     }
 
-    if (locationFilter) {
-      result = result.filter(
-        (profile) =>
-          profile.location.toLowerCase() ===
-          locationFilter.toLowerCase()
+    if (locationFilter.trim()) {
+      result = result.filter((profile) =>
+        profile.location
+          .toLowerCase()
+          .includes(locationFilter.toLowerCase())
       );
     }
 
     if (lookingForFilter) {
       result = result.filter(
         (profile) =>
-          profile.lookingFor.toLowerCase() ===
-          lookingForFilter.toLowerCase()
+          profile.lookingFor === lookingForFilter
       );
     }
 
@@ -160,39 +169,50 @@ function MatchesContent() {
     lookingForFilter,
   ]);
 
-  /* ---------------- SAVE PROFILE ---------------- */
+  /* =========================
+     SAVE PROFILE
+  ========================= */
 
-  const handleSave = (id: string) => {
-    let updatedSavedProfiles: string[];
+  const handleSaveProfile = (id: string) => {
+    let updatedProfiles: string[];
 
     if (savedProfiles.includes(id)) {
-      updatedSavedProfiles = savedProfiles.filter(
+      updatedProfiles = savedProfiles.filter(
         (profileId) => profileId !== id
       );
     } else {
-      updatedSavedProfiles = [...savedProfiles, id];
+      updatedProfiles = [
+        ...savedProfiles,
+        id,
+      ];
     }
 
-    setSavedProfiles(updatedSavedProfiles);
+    setSavedProfiles(updatedProfiles);
 
     localStorage.setItem(
       "savedProfiles",
-      JSON.stringify(updatedSavedProfiles)
+      JSON.stringify(updatedProfiles)
     );
   };
 
-  /* ---------------- DELETE OWN PROFILE ---------------- */
+  /* =========================
+     DELETE PROFILE
+  ========================= */
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteProfile = async (
+    id: string
+  ) => {
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete your profile?"
+      "Are you sure you want to delete this profile?"
     );
 
-    if (!confirmDelete) return;
+    if (!confirmDelete) {
+      return;
+    }
 
     try {
       const response = await fetch(
-        `/api/profiles/${id}`,
+        `${API_URL}/api/profiles/${id}`,
         {
           method: "DELETE",
         }
@@ -200,608 +220,940 @@ function MatchesContent() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        alert("Profile deleted successfully! ✅");
-
-        localStorage.removeItem("nammajodiProfile");
-
-        setProfiles((prev) =>
-          prev.filter((profile) => profile._id !== id)
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Delete failed"
         );
-
-        router.push("/profile");
-      } else {
-        alert(data.message || "Failed to delete profile");
       }
+
+      setProfiles((previousProfiles) =>
+        previousProfiles.filter(
+          (profile) =>
+            profile._id !== id
+        )
+      );
+
+      alert(
+        "Profile deleted successfully ✅"
+      );
     } catch (error) {
-      console.error(error);
-      alert("Server error. Please try again.");
+      console.error(
+        "Delete profile error:",
+        error
+      );
+
+      alert(
+        "Failed to delete profile ❌"
+      );
     }
   };
 
-  /* ---------------- VIEW PROFILE ---------------- */
+  /* =========================
+     VIEW PROFILE
+  ========================= */
 
-  const handleViewProfile = (id: string) => {
-    router.push(`/profile-details?id=${id}&mongo=true`);
+  const handleViewProfile = (
+    id: string
+  ) => {
+    router.push(
+      `/profile-details?id=${id}&mongo=true`
+    );
   };
 
-  /* ---------------- LOGOUT ---------------- */
+  /* =========================
+     LOGOUT
+  ========================= */
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
+    localStorage.removeItem(
+      "isLoggedIn"
+    );
 
-    alert("Logged out successfully! 👋");
-
-    router.push("/login");
+    router.push("/");
   };
 
-  /* ---------------- CLEAR FILTERS ---------------- */
+  /* =========================
+     CLEAR FILTERS
+  ========================= */
 
   const clearFilters = () => {
     setSearch("");
     setAgeFilter("");
     setLocationFilter("");
     setLookingForFilter("");
-
-    router.push("/matches");
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-gray-800">
+    <>
+      {/* =========================
+          NAVBAR
+      ========================= */}
 
-      {/* ================= NAVBAR ================= */}
+      <nav className="navbar">
+        <div className="navbar-logo">
+          ❤️ NammaJodi
+        </div>
 
-      <nav className="sticky top-0 z-50 border-b bg-white/95 px-5 py-4 shadow-sm backdrop-blur md:px-10">
-
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-
+        <div className="navbar-links">
           <button
-            onClick={() => router.push("/")}
-            className="text-xl font-bold text-pink-600 md:text-2xl"
+            onClick={() =>
+              router.push("/")
+            }
           >
-            💍 NammaJodi
+            Home
           </button>
 
-          <div className="hidden items-center gap-7 md:flex">
+          <button
+            onClick={() =>
+              router.push("/about")
+            }
+          >
+            About
+          </button>
+
+          <button className="active">
+            Matches
+          </button>
+
+          <button
+            onClick={() =>
+              router.push("/contact")
+            }
+          >
+            Contact
+          </button>
+
+          <button
+            onClick={() =>
+              router.push("/profile")
+            }
+          >
+            Profile
+          </button>
+
+          <button
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
+      </nav>
+
+      {/* =========================
+          HEADER
+      ========================= */}
+
+      <section className="matches-header">
+        <h1>
+          Find Your Matches ❤️
+        </h1>
+
+        <p>
+          Explore profiles and find the
+          right match for you.
+        </p>
+      </section>
+
+      {/* =========================
+          FILTERS
+      ========================= */}
+
+      <section className="filters-section">
+
+        <input
+          type="text"
+          placeholder="Search by name..."
+          value={search}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
+        />
+
+        <input
+          type="number"
+          placeholder="Age"
+          value={ageFilter}
+          onChange={(e) =>
+            setAgeFilter(e.target.value)
+          }
+        />
+
+        <input
+          type="text"
+          placeholder="Location"
+          value={locationFilter}
+          onChange={(e) =>
+            setLocationFilter(
+              e.target.value
+            )
+          }
+        />
+
+        <select
+          value={lookingForFilter}
+          onChange={(e) =>
+            setLookingForFilter(
+              e.target.value
+            )
+          }
+        >
+          <option value="">
+            Looking For
+          </option>
+
+          <option value="Bride">
+            Bride
+          </option>
+
+          <option value="Groom">
+            Groom
+          </option>
+        </select>
+
+        <button
+          className="clear-button"
+          onClick={clearFilters}
+        >
+          🔄 Clear Filters
+        </button>
+
+      </section>
+
+      {/* =========================
+          RESULTS
+      ========================= */}
+
+      <main className="matches-container">
+
+        <div className="results-title">
+          <h2>
+            👥{" "}
+            {filteredProfiles.length}{" "}
+            Profiles Found
+          </h2>
+
+          <span>
+            Good Matches Await ❤️
+          </span>
+        </div>
+
+        {/* LOADING */}
+
+        {loading && (
+          <div className="loading-box">
+            <p>
+              Loading profiles... ⏳
+            </p>
+          </div>
+        )}
+
+        {/* NO RESULTS */}
+
+        {!loading &&
+          filteredProfiles.length ===
+            0 && (
+            <div className="no-results">
+              <h3>
+                No profiles found
+              </h3>
+
+              <p>
+                Try changing your search
+                or filter options.
+              </p>
+            </div>
+          )}
+
+        {/* =========================
+            PROFILE GRID
+        ========================= */}
+
+        {!loading &&
+          filteredProfiles.length >
+            0 && (
+            <div className="profiles-grid">
+
+              {filteredProfiles.map(
+                (profile) => {
+
+                  const isOwnProfile =
+                    profile._id ===
+                    currentUserId;
+
+                  const isSaved =
+                    savedProfiles.includes(
+                      profile._id
+                    );
+
+                  return (
+                    <article
+                      key={profile._id}
+                      className="profile-card"
+                    >
+
+                      {/* IMAGE */}
+
+                      <div className="profile-image">
+
+                        <img
+                          src={
+                            imageMap[
+                              profile.name
+                            ] ||
+                            "/Public/Nanya.jpg"
+                          }
+                          alt={
+                            profile.name
+                          }
+                        />
+
+                        {isSaved && (
+                          <span className="saved-badge">
+                            ❤️ Saved
+                          </span>
+                        )}
+
+                      </div>
+
+                      {/* DETAILS */}
+
+                      <div className="profile-details">
+
+                        <div className="name-row">
+
+                          <h3>
+                            {profile.name}
+                          </h3>
+
+                          <span className="age">
+                            Age:{" "}
+                            {profile.age}
+                          </span>
+
+                        </div>
+
+                        <p>
+                          📍{" "}
+                          {profile.location}
+                        </p>
+
+                        <p>
+                          💼{" "}
+                          {profile.profession ||
+                            "Not specified"}
+                        </p>
+
+                        <p>
+                          👤 Looking for:{" "}
+                          {profile.lookingFor}
+                        </p>
+
+                        <p className="about">
+                          {profile.about ||
+                            "No description available."}
+                        </p>
+
+                        {/* BUTTONS */}
+
+                        <div className="action-buttons">
+
+                          <button
+                            className="view-button"
+                            onClick={() =>
+                              handleViewProfile(
+                                profile._id
+                              )
+                            }
+                          >
+                            View Profile
+                          </button>
+
+                          {!isOwnProfile && (
+                            <button
+                              className="save-button"
+                              onClick={() =>
+                                handleSaveProfile(
+                                  profile._id
+                                )
+                              }
+                            >
+                              {isSaved
+                                ? "❤️ Saved"
+                                : "🤍 Save"}
+                            </button>
+                          )}
+
+                          {isOwnProfile && (
+                            <button
+                              className="delete-button"
+                              onClick={() =>
+                                handleDeleteProfile(
+                                  profile._id
+                                )
+                              }
+                            >
+                              Delete
+                            </button>
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    </article>
+                  );
+                }
+              )}
+
+            </div>
+          )}
+
+      </main>
+
+      {/* =========================
+          FOOTER
+      ========================= */}
+
+      <footer className="footer">
+
+        <div className="footer-content">
+
+          <div>
+            <h3>
+              ❤️ NammaJodi
+            </h3>
+
+            <p>
+              Connect with people and
+              discover meaningful profiles.
+            </p>
+          </div>
+
+          <div>
+            <h4>
+              Quick Links
+            </h4>
 
             <button
-              onClick={() => router.push("/")}
-              className="font-medium text-gray-600 transition hover:text-pink-600"
+              onClick={() =>
+                router.push("/")
+              }
             >
               Home
             </button>
 
             <button
-              className="font-semibold text-pink-600"
-            >
-              Matches
-            </button>
-
-            <button
               onClick={() =>
-                (window.location.href = "/about")
+                router.push("/about")
               }
-              className="font-medium text-gray-600 transition hover:text-pink-600"
             >
               About
             </button>
 
             <button
               onClick={() =>
-                (window.location.href = "/contact")
+                router.push("/matches")
               }
-              className="font-medium text-gray-600 transition hover:text-pink-600"
             >
-              Contact
+              Matches
             </button>
-
-          </div>
-
-          <div className="flex items-center gap-2">
 
             <button
               onClick={() =>
-                router.push("/profile-details?own=true")
+                router.push("/contact")
               }
-              className="rounded-full border border-pink-600 px-4 py-2 text-sm font-semibold text-pink-600 transition hover:bg-pink-50"
             >
-              Profile
+              Contact
             </button>
-
-            <button
-              onClick={handleLogout}
-              className="hidden rounded-full bg-pink-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-pink-700 sm:block"
-            >
-              Logout
-            </button>
-
           </div>
 
-        </div>
-      </nav>
+          <div>
+            <h4>
+              Contact
+            </h4>
 
-      {/* ================= HEADER ================= */}
-
-      <section className="relative overflow-hidden bg-gradient-to-br from-pink-100 via-white to-purple-100 px-5 py-16 md:px-10 md:py-20">
-
-        <div className="relative mx-auto max-w-7xl">
-
-          <div className="max-w-3xl">
-
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-600">
-              Discover Connections
+            <p>
+              📧 nammajodi@example.com
             </p>
 
-            <h1 className="mt-3 text-4xl font-bold leading-tight text-gray-900 md:text-5xl">
-              Find Profiles That
-              <span className="text-pink-600">
-                {" "}Match Your Preferences
-              </span>
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-base leading-7 text-gray-600 md:text-lg">
-              Explore profiles based on age, location and
-              preferences. Find the right connections with
-              NammaJodi.
+            <p>
+              📍 India
             </p>
-
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-4">
-
-            <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
-              <p className="text-2xl font-bold text-pink-600">
-                {profiles.length}
-              </p>
-              <p className="text-sm text-gray-500">
-                Profiles
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
-              <p className="text-2xl font-bold text-purple-600">
-                {savedProfiles.length}
-              </p>
-              <p className="text-sm text-gray-500">
-                Saved
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
-              <p className="text-2xl font-bold text-gray-900">
-                {filteredProfiles.length}
-              </p>
-              <p className="text-sm text-gray-500">
-                Showing
-              </p>
-            </div>
-
           </div>
 
         </div>
-      </section>
 
-      {/* ================= FILTER SECTION ================= */}
-
-      <section className="px-5 py-8 md:px-10">
-
-        <div className="mx-auto max-w-7xl">
-
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm md:p-7">
-
-            <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-center">
-
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Find Your Match
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Use filters to discover suitable profiles.
-                </p>
-              </div>
-
-              <button
-                onClick={clearFilters}
-                className="text-sm font-semibold text-pink-600 hover:text-pink-700"
-              >
-                Clear Filters
-              </button>
-
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-
-              {/* Search */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Search Name
-                </label>
-
-                <div className="relative">
-
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    🔎
-                  </span>
-
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) =>
-                      setSearch(e.target.value)
-                    }
-                    placeholder="Search by name"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
-                  />
-
-                </div>
-              </div>
-
-              {/* Age */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Age
-                </label>
-
-                <select
-                  value={ageFilter}
-                  onChange={(e) =>
-                    setAgeFilter(e.target.value)
-                  }
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
-                >
-                  <option value="">All Ages</option>
-                  <option value="21-25">21 - 25</option>
-                  <option value="26-30">26 - 30</option>
-                  <option value="31-35">31 - 35</option>
-                  <option value="36-40">36 - 40</option>
-                  <option value="41-60">41 - 60</option>
-                </select>
-              </div>
-
-              {/* Location */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Location
-                </label>
-
-                <select
-                  value={locationFilter}
-                  onChange={(e) =>
-                    setLocationFilter(e.target.value)
-                  }
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
-                >
-                  <option value="">All Locations</option>
-                  <option value="Chennai">Chennai</option>
-                  <option value="Coimbatore">Coimbatore</option>
-                  <option value="Bangalore">Bangalore</option>
-                </select>
-              </div>
-
-              {/* Looking For */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Looking For
-                </label>
-
-                <select
-                  value={lookingForFilter}
-                  onChange={(e) =>
-                    setLookingForFilter(e.target.value)
-                  }
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
-                >
-                  <option value="">Everyone</option>
-                  <option value="Bride">Bride</option>
-                  <option value="Groom">Groom</option>
-                </select>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= RESULTS ================= */}
-
-      <section className="px-5 pb-16 md:px-10">
-
-        <div className="mx-auto max-w-7xl">
-
-          <div className="mb-6 flex items-end justify-between">
-
-            <div>
-              <p className="text-sm font-semibold text-pink-600">
-                MATCH RESULTS
-              </p>
-
-              <h2 className="mt-1 text-2xl font-bold text-gray-900 md:text-3xl">
-                Recommended Profiles
-              </h2>
-            </div>
-
-            <p className="text-sm text-gray-500">
-              {filteredProfiles.length} profiles found
-            </p>
-
-          </div>
-
-          {/* Loading */}
-
-          {loading && (
-            <div className="rounded-3xl bg-white p-12 text-center shadow-sm">
-
-              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-pink-200 border-t-pink-600"></div>
-
-              <p className="font-medium text-gray-600">
-                Loading profiles...
-              </p>
-
-            </div>
-          )}
-
-          {/* No Results */}
-
-          {!loading && filteredProfiles.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
-
-              <div className="text-5xl">
-                🔍
-              </div>
-
-              <h3 className="mt-4 text-xl font-bold text-gray-900">
-                No profiles found
-              </h3>
-
-              <p className="mx-auto mt-2 max-w-md text-gray-500">
-                Try changing your filters or search
-                criteria to discover more profiles.
-              </p>
-
-              <button
-                onClick={clearFilters}
-                className="mt-6 rounded-full bg-pink-600 px-6 py-3 font-semibold text-white hover:bg-pink-700"
-              >
-                Clear Filters
-              </button>
-
-            </div>
-          )}
-
-          {/* Profile Cards */}
-
-          {!loading && filteredProfiles.length > 0 && (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-
-              {filteredProfiles.map((profile) => {
-
-                const isOwnProfile =
-                  profile._id === currentUserId;
-
-                const isSaved =
-                  savedProfiles.includes(profile._id);
-
-                return (
-                  <article
-                    key={profile._id}
-                    className="group overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-                  >
-
-                    {/* Image */}
-
-                    <div className="relative h-72 overflow-hidden bg-gray-100">
-
-                      <img
-                        src={
-                          imageMap[profile.name] ||
-                          "/Public/Ananya.jpg"
-                        }
-                        alt={profile.name}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-
-                      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent"></div>
-
-                      <div className="absolute bottom-4 left-4 text-white">
-
-                        <h3 className="text-2xl font-bold">
-                          {profile.name}
-                        </h3>
-
-                        <p className="mt-1 text-sm text-white/90">
-                          {profile.age} years • {profile.location}
-                        </p>
-
-                      </div>
-
-                      {/* Save */}
-
-                      {!isOwnProfile && (
-                        <button
-                          onClick={() =>
-                            handleSave(profile._id)
-                          }
-                          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-lg shadow-md backdrop-blur transition hover:scale-105"
-                          title={
-                            isSaved
-                              ? "Remove from saved"
-                              : "Save profile"
-                          }
-                        >
-                          {isSaved ? "❤️" : "♡"}
-                        </button>
-                      )}
-
-                      {/* Own Profile */}
-
-                      {isOwnProfile && (
-                        <span className="absolute left-4 top-4 rounded-full bg-pink-600 px-3 py-1.5 text-xs font-bold text-white">
-                          Your Profile
-                        </span>
-                      )}
-
-                    </div>
-
-                    {/* CARD CONTENT */}
-
-                    <div className="p-5">
-
-                      <div className="flex flex-wrap gap-2">
-
-                        {profile.profession && (
-                          <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700">
-                            💼 {profile.profession}
-                          </span>
-                        )}
-
-                        <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
-                          📍 {profile.location}
-                        </span>
-
-                      </div>
-
-                      {profile.about && (
-                        <p className="mt-4 line-clamp-2 text-sm leading-6 text-gray-500">
-                          {profile.about}
-                        </p>
-                      )}
-
-                      {/* BUTTONS */}
-
-                      <div className="mt-5 flex gap-3">
-
-                        <button
-                          onClick={() =>
-                            handleViewProfile(profile._id)
-                          }
-                          className="flex-1 rounded-xl bg-pink-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-pink-700"
-                        >
-                          View Profile
-                        </button>
-
-                        {isOwnProfile && (
-                          <button
-                            onClick={() =>
-                              handleDelete(profile._id)
-                            }
-                            className="rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        )}
-
-                      </div>
-
-                    </div>
-
-                  </article>
-                );
-              })}
-
-            </div>
-          )}
-
-        </div>
-      </section>
-
-      {/* FOOTER */}
-
-      <footer className="bg-gray-950 px-5 py-10 text-white md:px-10">
-
-        <div className="mx-auto max-w-7xl">
-
-          <div className="grid gap-8 md:grid-cols-3">
-
-            <div>
-              <h3 className="text-2xl font-bold text-pink-500">
-                💍 NammaJodi
-              </h3>
-
-              <p className="mt-3 max-w-sm text-sm leading-6 text-gray-400">
-                A simple and modern platform to discover
-                meaningful connections.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold">
-                Quick Links
-              </h4>
-
-              <div className="mt-3 space-y-2 text-sm text-gray-400">
-
-                <button
-                  onClick={() => router.push("/")}
-                  className="block hover:text-white"
-                >
-                  Home
-                </button>
-
-                <button
-                  onClick={() =>
-                    (window.location.href = "/about")
-                  }
-                  className="block hover:text-white"
-                >
-                  About
-                </button>
-
-                <button
-                  onClick={() =>
-                    (window.location.href = "/contact")
-                  }
-                  className="block hover:text-white"
-                >
-                  Contact
-                </button>
-
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold">
-                Contact
-              </h4>
-
-              <p className="mt-3 text-sm text-gray-400">
-                support@nammajodi.com
-              </p>
-
-              <p className="mt-2 text-sm text-gray-400">
-                Tamil Nadu, India
-              </p>
-            </div>
-
-          </div>
-
-          <div className="mt-8 border-t border-gray-800 pt-6 text-center text-sm text-gray-500">
-            © 2026 NammaJodi. All rights reserved.
-          </div>
-
+        <div className="footer-bottom">
+          © 2026 NammaJodi. All rights reserved.
         </div>
 
       </footer>
 
-    </main>
+      {/* =========================
+          PAGE CSS
+      ========================= */}
+
+      <style jsx global>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          background: #ffffff;
+          color: #26354a;
+          font-family: Arial, sans-serif;
+        }
+
+        /* NAVBAR */
+
+        .navbar {
+          width: 100%;
+          min-height: 70px;
+          padding: 0 5%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #ffffff;
+          border-bottom: 1px solid #eeeeee;
+        }
+
+        .navbar-logo {
+          font-size: 24px;
+          font-weight: 700;
+          color: #d91b6f;
+        }
+
+        .navbar-links {
+          display: flex;
+          align-items: center;
+          gap: 25px;
+        }
+
+        .navbar-links button {
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 15px;
+          color: #334155;
+          padding: 10px 5px;
+        }
+
+        .navbar-links button:hover,
+        .navbar-links .active {
+          color: #d91b6f;
+        }
+
+        /* HEADER */
+
+        .matches-header {
+          text-align: center;
+          padding: 40px 20px;
+          background: #fff1f7;
+        }
+
+        .matches-header h1 {
+          margin: 0 0 10px;
+          font-size: 36px;
+          color: #a91659;
+        }
+
+        .matches-header p {
+          margin: 0;
+          font-size: 17px;
+          color: #52627a;
+        }
+
+        /* FILTERS */
+
+        .filters-section {
+          width: 100%;
+          display: grid;
+          grid-template-columns:
+            1.5fr
+            1fr
+            1.3fr
+            1.2fr
+            1fr;
+          gap: 14px;
+          padding: 22px 5%;
+          background: #fff9fc;
+        }
+
+        .filters-section input,
+        .filters-section select {
+          width: 100%;
+          height: 48px;
+          padding: 0 15px;
+          border: 1px solid #dddddd;
+          border-radius: 12px;
+          outline: none;
+          background: white;
+          font-size: 14px;
+        }
+
+        .filters-section input:focus,
+        .filters-section select:focus {
+          border-color: #e32b7a;
+        }
+
+        .clear-button {
+          height: 48px;
+          border: none;
+          border-radius: 12px;
+          background: #df2875;
+          color: white;
+          cursor: pointer;
+          font-weight: 600;
+        }
+
+        .clear-button:hover {
+          background: #c51d64;
+        }
+
+        /* MAIN */
+
+        .matches-container {
+          width: 100%;
+          max-width: 1500px;
+          margin: auto;
+          padding: 25px 4%;
+        }
+
+        .results-title {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
+        .results-title h2 {
+          margin: 0;
+          font-size: 20px;
+        }
+
+        .results-title span {
+          color: #df2875;
+          font-size: 14px;
+        }
+
+        /* ⭐ 4 PROFILES PER ROW ⭐ */
+
+        .profiles-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+          gap: 24px;
+          width: 100%;
+        }
+
+        /* CARD */
+
+        .profile-card {
+          width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          background: white;
+          border: 1px solid #eeeeee;
+          border-radius: 20px;
+          box-shadow:
+            0 4px 15px
+            rgba(0, 0, 0, 0.08);
+          transition:
+            transform 0.3s ease,
+            box-shadow 0.3s ease;
+        }
+
+        .profile-card:hover {
+          transform: translateY(-5px);
+          box-shadow:
+            0 12px 28px
+            rgba(0, 0, 0, 0.14);
+        }
+
+        /* IMAGE */
+
+        .profile-image {
+          position: relative;
+          width: 100%;
+          height: 230px;
+          overflow: hidden;
+          background: #f3f3f3;
+        }
+
+        .profile-image img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+        }
+
+        .saved-badge {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          padding: 7px 12px;
+          border-radius: 20px;
+          background: white;
+          color: #d91b6f;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        /* DETAILS */
+
+        .profile-details {
+          padding: 18px;
+        }
+
+        .name-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+
+        .name-row h3 {
+          margin: 0;
+          font-size: 20px;
+          color: #172033;
+        }
+
+        .age {
+        flex-shrink: 0;
+          padding: 6px 10px;
+          border-radius: 20px;
+          background: #ffe4f0;
+          color: #d91b6f;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .profile-details > p {
+          margin: 8px 0;
+          font-size: 13px;
+          line-height: 1.4;
+          color: #52627a;
+        }
+
+        .profile-details .about {
+          min-height: 38px;
+          margin-top: 12px;
+          color: #697586;
+        }
+
+        /* BUTTONS */
+
+        .action-buttons {
+          display: flex;
+          gap: 8px;
+          margin-top: 16px;
+        }
+
+        .action-buttons button {
+          flex: 1;
+          min-height: 40px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .view-button {
+          border: none;
+          background: #df2875;
+          color: white;
+        }
+
+        .view-button:hover {
+          background: #c51d64;
+        }
+
+        .save-button {
+          border: 1px solid #e33b83;
+          background: white;
+          color: #d91b6f;
+        }
+
+        .save-button:hover {
+          background: #fff1f7;
+        }
+
+        .delete-button {
+          border: 1px solid #e33b3b;
+          background: white;
+          color: #d33a3a;
+        }
+
+        /* LOADING */
+
+        .loading-box,
+        .no-results {
+          text-align: center;
+          padding: 60px 20px;
+        }
+
+        .no-results h3 {
+          margin-bottom: 8px;
+        }
+
+        /* FOOTER */
+
+        .footer {
+          margin-top: 40px;
+          background: #fff1f7;
+        }
+
+        .footer-content {
+          display: grid;
+          grid-template-columns:
+            2fr 1fr 1fr;
+          gap: 40px;
+          padding: 40px 6%;
+        }
+
+        .footer h3 {
+          margin-top: 0;
+          color: #d91b6f;
+        }
+
+        .footer h4 {
+          margin-top: 0;
+        }
+
+        .footer p {
+          font-size: 14px;
+          line-height: 1.6;
+          color: #596579;
+        }
+
+        .footer button {
+          display: block;
+          border: none;
+          background: transparent;
+          padding: 5px 0;
+          cursor: pointer;
+          color: #52627a;
+        }
+
+        .footer button:hover {
+          color: #d91b6f;
+        }
+
+        .footer-bottom {
+          text-align: center;
+          padding: 15px;
+          background: #ffe0ed;
+          font-size: 13px;
+          color: #697586;
+        }
+
+        /* TABLET */
+
+        @media (max-width: 1100px) {
+
+          .profiles-grid {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .filters-section {
+            grid-template-columns:
+              repeat(2, 1fr);
+          }
+
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 700px) {
+
+          .navbar {
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+          }
+
+          .navbar-links {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+          }
+
+          .matches-header h1 {
+            font-size: 28px;
+          }
+
+          .filters-section {
+            grid-template-columns: 1fr;
+            padding: 15px;
+          }
+
+          .profiles-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap: 14px;
+          }
+
+          .profile-image {
+            height: 190px;
+          }
+
+          .profile-details {
+            padding: 12px;
+          }
+
+          .name-row {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .action-buttons {
+            flex-direction: column;
+          }
+
+          .footer-content {
+            grid-template-columns: 1fr;
+          }
+
+        }
+
+        /* SMALL MOBILE */
+
+        @media (max-width: 450px) {
+
+          .profiles-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .profile-image {
+            height: 250px;
+          }
+
+        }
+
+      `}</style>
+    </>
   );
 }
+
+/* =========================
+   SUSPENSE
+========================= */
 
 export default function Matches() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-50">
-          <p className="font-medium text-gray-600">
-            Loading matches...
-          </p>
+        <div
+          style={{
+            padding: "50px",
+            textAlign: "center",
+          }}
+        >
+          Loading Matches... ⏳
         </div>
       }
     >
@@ -809,6 +1161,3 @@ export default function Matches() {
     </Suspense>
   );
 }
-
-                    
-                        
