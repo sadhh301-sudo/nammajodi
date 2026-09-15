@@ -36,23 +36,23 @@ function MatchesContent() {
   ========================= */
 
   const imageMap: Record<string, string> = {
-    Ananya: "/Public/Ananya.jpg",
-    Priya: "/Public/Priya.jpg",
-    Rahul: "/Public/Rahul.jpg",
-    Divya: "/Public/Divya.jpg",
-    Karthik: "/Public/Karthik.jpg",
-    Arun: "/Public/Arun.jpg",
-    Vikram: "/public/Vikram.jpg",
-    Banu: "/public/Banu.jpg",
-    Arjun: "/public/Arjun.jpg",
-    Meera: "/public/Meera.jpg",
-    Sahana: "/public/Sahana.jpg",
-    Keerthika: "/public/Keerthika.jpg",
-    Rajesh: "/public/Rajesh.jpg",
-    Manoj: "public/Manoj.jpg",
-    Shalini: "public/Shalini.jpg",
-    Sara: "public/Sara.jpg",
-  };
+  Ananya: "/Public/Ananya.jpg",
+  Priya: "/Public/Priya.jpg",
+  Rahul: "/Public/Rahul.jpg",
+  Divya: "/Public/Divya.jpg",
+  Karthik: "/Public/Karthik.jpg",
+  Arun: "/Public/Arun.jpg",
+  Vikram: "/Public/Vikram.jpg",
+  Banu: "/Public/Banu.jpg",
+  Arjun: "/Public/Arjun.jpg",
+  Meera: "/Public/Meera.jpg",
+  Sahana: "/Public/Sahana.jpg",
+  Keerthika: "/Public/Keerthika.jpg",
+  Rajesh: "/Public/Rajesh.jpg",
+  Manoj: "/Public/Manoj.jpg",
+  Shalini: "/Public/Shalini.jpg",
+  Sara: "/Public/Sara.jpg",
+};
 
   /* =========================
      LOGIN + SAVED PROFILES
