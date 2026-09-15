@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type DbProfile = {
   _id: string;
@@ -18,6 +18,7 @@ const API_URL = "https://nammajodi.onrender.com";
 
 function MatchesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [profiles, setProfiles] = useState<DbProfile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<DbProfile[]>([]);
@@ -123,51 +124,79 @@ function MatchesContent() {
     fetchProfiles();
   }, []);
 
-  /* =========================
-     SEARCH + FILTER
-  ========================= */
+/* =========================
+   READ HOME SEARCH
+========================= */
 
-  useEffect(() => {
-    let result = [...profiles];
+useEffect(() => {
+  const lookingForParam = searchParams.get("lookingFor") || "";
+  const ageParam = searchParams.get("age") || "";
+  const locationParam = searchParams.get("location") || "";
 
-    if (search.trim()) {
-      result = result.filter((profile) =>
-        profile.name
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      );
-    }
+  setLookingForFilter(lookingForParam);
+  setAgeFilter(ageParam);
+  setLocationFilter(locationParam);
+}, [searchParams]);
 
-    if (ageFilter) {
-      result = result.filter(
-        (profile) =>
-          profile.age === Number(ageFilter)
-      );
-    }
+/* =========================
+   SEARCH + FILTER
+========================= */
 
-    if (locationFilter.trim()) {
-      result = result.filter((profile) =>
-        profile.location
-          .toLowerCase()
-          .includes(locationFilter.toLowerCase())
-      );
-    }
+useEffect(() => {
+  let result = [...profiles];
 
-    if (lookingForFilter) {
-      result = result.filter(
-        (profile) =>
-          profile.lookingFor === lookingForFilter
-      );
-    }
+  /* NAME SEARCH */
+  if (search.trim()) {
+    result = result.filter((profile) =>
+      profile.name
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }
 
-    setFilteredProfiles(result);
-  }, [
-    profiles,
-    search,
-    ageFilter,
-    locationFilter,
-    lookingForFilter,
-  ]);
+  /* AGE RANGE */
+  if (ageFilter) {
+    result = result.filter((profile) => {
+      if (ageFilter.includes("-")) {
+        const [minAge, maxAge] = ageFilter
+          .split("-")
+          .map(Number);
+
+        return (
+          profile.age >= minAge &&
+          profile.age <= maxAge
+        );
+      }
+
+      return profile.age === Number(ageFilter);
+    });
+  }
+
+  /* LOCATION */
+  if (locationFilter.trim()) {
+    result = result.filter((profile) =>
+      profile.location
+        .toLowerCase()
+        .includes(locationFilter.toLowerCase())
+    );
+  }
+
+  /* LOOKING FOR */
+  if (lookingForFilter) {
+    result = result.filter(
+      (profile) =>
+        profile.lookingFor === lookingForFilter
+    );
+  }
+
+  setFilteredProfiles(result);
+}, [
+  profiles,
+  search,
+  ageFilter,
+  locationFilter,
+  lookingForFilter,
+]);
 
   /* =========================
      SAVE PROFILE
