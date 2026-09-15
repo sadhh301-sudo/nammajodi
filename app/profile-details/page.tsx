@@ -22,7 +22,7 @@ function ProfileDetailsContent() {
   const own = searchParams.get("own");
   const mongo = searchParams.get("mongo");
 
-  const API_URL = "http://localhost:5000";
+  const API_URL = "https://nammajodi.onrender.com";
 
   const [savedProfile, setSavedProfile] = useState<any>(null);
   const [mongoProfile, setMongoProfile] =

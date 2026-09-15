@@ -14,7 +14,7 @@ type DbProfile = {
   email: string;
 };
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://nammajodi.onrender.com";
 
 function MatchesContent() {
   const router = useRouter();

@@ -10,7 +10,7 @@ function ProfilePageContent() {
   const isEdit = searchParams.get("edit") === "true";
 
   // BACKEND URL
-  const API_URL = "http://localhost:5000";
+  const API_URL = "https://nammajodi.onrender.com";
 
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
